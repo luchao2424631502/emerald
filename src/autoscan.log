@@ -1,0 +1,27 @@
+autoscan: warning: missing AC_CHECK_FUNCS([gethostbyname]) wanted by: 
+	oss/ossSocket.cpp:48
+	oss/ossSocket.cpp:135
+autoscan: warning: missing AC_CHECK_FUNCS([gethostname]) wanted by: 
+	oss/ossSocket.cpp:639
+autoscan: warning: missing AC_CHECK_FUNCS([select]) wanted by: 
+	oss/ossSocket.cpp:203
+	oss/ossSocket.cpp:279
+	oss/ossSocket.cpp:378
+	oss/ossSocket.cpp:508
+autoscan: warning: missing AC_CHECK_FUNCS([socket]) wanted by: 
+	include/ossSocket.h:39
+	oss/ossSocket.cpp:3
+	oss/ossSocket.cpp:20
+	oss/ossSocket.cpp:98
+autoscan: warning: missing AC_CHECK_HEADERS([arpa/inet.h]) wanted by: 
+	include/core.h:21
+autoscan: warning: missing AC_CHECK_HEADERS([fcntl.h]) wanted by: 
+	include/core.h:14
+autoscan: warning: missing AC_CHECK_HEADERS([netdb.h]) wanted by: 
+	include/core.h:22
+autoscan: warning: missing AC_CHECK_HEADERS([netinet/in.h]) wanted by: 
+	include/core.h:20
+autoscan: warning: missing AC_CHECK_HEADERS([sys/socket.h]) wanted by: 
+	include/core.h:19
+autoscan: warning: missing AC_CHECK_HEADERS([sys/time.h]) wanted by: 
+	include/core.h:9
