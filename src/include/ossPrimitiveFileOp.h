@@ -57,6 +57,7 @@ class ossPrimitiveFileOp
     const ossPrimitiveFileOp &operator=(const ossPrimitiveFileOp &); 
     
   protected:
+    //由已知的文件句柄生成对象
     void setFileHandle(handleType handle);
   public:
     //默认的拷贝构造函数
@@ -76,10 +77,12 @@ class ossPrimitiveFileOp
 
     //得到当前偏移
     offsetType getCurrentOffset() const;
+    //定位偏移
     void seekToOffset(offsetType offset);
+    //偏移到最后
     void seekToEnd();
-    int getSize(offsetType *constpFileSize);
-
+    //得到文件大小
+    int getSize(offsetType *const pFileSize);
     //返回文件句柄
     handleType getHandle() const 
     {

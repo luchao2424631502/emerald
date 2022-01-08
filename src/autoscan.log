@@ -25,3 +25,5 @@ autoscan: warning: missing AC_CHECK_HEADERS([sys/socket.h]) wanted by:
 	include/core.h:19
 autoscan: warning: missing AC_CHECK_HEADERS([sys/time.h]) wanted by: 
 	include/core.h:9
+autoscan: warning: missing AC_TYPE_SSIZE_T wanted by: 
+	oss/ossPrimitiveFileOp.cpp:106
