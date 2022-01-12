@@ -4,6 +4,7 @@ bin_PROGRAMS=emeralddb edb
 emeralddb_SOURCES=\
 									pmd/pmdMain.cpp pmd/pmdTcpListener.cpp\
 									oss/ossSocket.cpp oss/ossPrimitiveFileOp.cpp\
+									pd/pd.cpp pmd/pmdOptions.cpp\
 									bson/src/bsonobj.cpp bson/src/util/json.cpp bson/src/oid.cpp \
 									bson/src/lib/base64.cpp bson/src/lib/md5.cpp bson/src/lib/nonce.cpp
 
@@ -11,7 +12,7 @@ emeralddb_SOURCES=\
 edb_SOURCES=\
 						client/edb.cpp\
 						client/command.cpp client/commandFactory.cpp\
-						oss/ossSocket.cpp\
+						oss/ossPrimitiveFileOp.cpp oss/ossSocket.cpp pd/pd.cpp\
 						bson/src/bsonobj.cpp bson/src/util/json.cpp bson/src/oid.cpp \
 						bson/src/lib/base64.cpp bson/src/lib/md5.cpp bson/src/lib/nonce.cpp
 

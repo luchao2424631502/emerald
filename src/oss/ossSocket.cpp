@@ -1,4 +1,5 @@
 #include "ossSocket.h"
+#include "pd.h"
 
 //创建listen socket (只给出端口)
 _ossSocket::_ossSocket(unsigned int port,int timeout)
@@ -70,18 +71,26 @@ _ossSocket::_ossSocket(int *sock,int timeout)
   if(rc)
   {
     //SOCK_GETLASTERROR = errno
-    printf("Failed to get sock name, error = %d",SOCKET_GETLASTERROR);
+    // printf("Failed to get sock name, error = %d",SOCKET_GETLASTERROR);
+    PD_LOG(PDERROR,"Failed to get sock name, error = %d",SOCKET_GETLASTERROR);
     _init = false;//则初始化socket失败
   }
   else 
   {
     //返回客户端的sockaddr信息
     rc = getpeername(_fd,(sockaddr*)&_peerAddress,&_peerAddressLen);
+    PD_RC_CHECK(rc,PDERROR,"Failed to get peer name, error = %d",SOCKET_GETLASTERROR);
+    /*
     if(rc)
     {
       printf("Failed to get peer name, error = %d",SOCKET_GETLASTERROR);
     }
+    */
   }
+done:
+  return ;
+error:
+  goto done;
 }
 
 //做一个新socket,首先要初始化
@@ -98,9 +107,10 @@ int ossSocket::initSocket()
   _fd = socket(AF_INET,SOCK_STREAM,IPPROTO_TCP);
   if(_fd == -1)
   {
-    printf("Failed to initialize socket, error = %d",SOCKET_GETLASTERROR);
-    rc = EDB_NETWORK;
-    goto error;
+    // printf("Failed to initialize socket, error = %d",SOCKET_GETLASTERROR);
+    PD_RC_CHECK(EDB_NETWORK,PDERROR,"Failed to initialize socket, error = %d",SOCKET_GETLASTERROR);
+    // rc = EDB_NETWORK;
+    // goto error;
   }
   _init = true;
 
@@ -149,28 +159,27 @@ int ossSocket::bind_listen()
   rc = setsockopt(_fd,SOL_SOCKET,SO_REUSEADDR,(char *)&tmp,sizeof(int));
   if(rc)
   {
-    printf("Failed to setsockopt to SO_REUSEADDR, rc = %d",SOCKET_GETLASTERROR);
+    PD_LOG(PDWARNING,"Failed to setsockopt to SO_REUSEADDR, rc = %d",SOCKET_GETLASTERROR);
   }
+  
   //设置返回时间: a!=0 b>0,30ms内发送完则正确退出,否则socket强制退出
   rc = setSocketLi(1,30);
   if(rc)
   {
-    printf("Failed to setsockopt SO_LINTER,rc = %d",SOCKET_GETLASTERROR);
+    PD_LOG(PDWARNING,"Failed to setsockopt SO_LINTER,rc = %d",SOCKET_GETLASTERROR);
   }
 
   //将 ip和端口绑定到 socket上
   rc = ::bind(_fd,(struct sockaddr*)&_sockAddress,_addressLen);
   if(rc)
   {
-    printf("Failed to bind socket, rc = %d",SOCKET_GETLASTERROR);
+    PD_RC_CHECK(EDB_NETWORK,PDERROR,"Failed to bind socket, rc = %d",SOCKET_GETLASTERROR);
   }
 
   rc = listen(_fd,SOMAXCONN);
   if(rc)
   {
-    printf("Failed to listen socket, rc = %d",SOCKET_GETLASTERROR);
-    rc = EDB_NETWORK;
-    goto error;
+    PD_RC_CHECK(EDB_NETWORK,PDERROR,"Failed to listen socket, rc = %d",SOCKET_GETLASTERROR);
   }
 done:
   return rc;
@@ -212,13 +221,10 @@ int ossSocket::send(const char *pMsg,int len,int timeout,int flags)
     else if (rc<0)
     {
       rc = SOCKET_GETLASTERROR;
-      //
       if(EINTR == rc)
         continue;//恢复while循环,结束有中断发生的错误
       //否则是其他的错误
-      printf("Failed to select from socket, rc = %d",rc);
-      rc = EDB_NETWORK;
-      goto error;
+      PD_RC_CHECK(EDB_NETWORK,PDERROR,"Failed to select from socket, rc = %d",rc);
     }
 
     //是不是 fd已经准备好
@@ -231,9 +237,7 @@ int ossSocket::send(const char *pMsg,int len,int timeout,int flags)
     rc = ::send(_fd,pMsg,len,MSG_NOSIGNAL | flags);
     if (rc == -1)
     {
-      printf("Failed to send,rc = %d",SOCKET_GETLASTERROR);
-      rc = EDB_NETWORK;
-      goto error;
+      PD_RC_CHECK(EDB_NETWORK,PDERROR,"Failed to send,rc = %d",SOCKET_GETLASTERROR);
     }
     len -= rc;
     pMsg += rc;//每次加发送过得距离
@@ -293,8 +297,7 @@ int ossSocket::recv(char *pMsg,int len,int timeout,int flags)
         continue;
       }
       //别的错误
-      printf("Failed to select fron socket, rc = %d",rc);
-      goto error;
+      PD_RC_CHECK(EDB_NETWORK,PDERROR,"Failed to select fron socket, rc = %d",rc);
     }
 
     //判断是否是_fd准备好了(fds里面也就_fd)
@@ -321,9 +324,7 @@ int ossSocket::recv(char *pMsg,int len,int timeout,int flags)
     //一般是对方shutdown连接了
     else if (rc == 0)
     {
-      printf("Peer unexpected shutdown");
-      rc = EDB_NETWORK_CLOSE;
-      goto error;
+      PD_RC_CHECK(EDB_NETWORK_CLOSE,PDWARNING,"Peer unexpected shutdown");
     }
     //发生了错误
     else {
@@ -332,9 +333,7 @@ int ossSocket::recv(char *pMsg,int len,int timeout,int flags)
       if ((rc == EAGAIN || rc == EWOULDBLOCK) &&
           _timeout > 0)
       {
-        printf("Recv() timeout: rc = %d",rc);
-        rc = EDB_NETWORK;
-        goto error;
+        PD_RC_CHECK(EDB_NETWORK,PDERROR,"Recv() timeout: rc = %d",rc);
       }
       //由中断引起的错误,
       if ((EINTR == rc) && (retries < MAX_RECV_RETRIES))
@@ -344,9 +343,7 @@ int ossSocket::recv(char *pMsg,int len,int timeout,int flags)
       }
 
       //其他错误
-      printf("Recv() Failed: rc = %d",rc);
-      rc = EDB_NETWORK;
-      goto error;
+      PD_RC_CHECK(EDB_NETWORK,PDERROR,"Recv() Failed: rc = %d",rc);
     }
   }
   rc = EDB_OK;
@@ -392,8 +389,7 @@ int ossSocket::recvNF(char *pMsg,int len,int timeout)
         continue;
       }
       //别的错误
-      printf("Failed to select fron socket, rc = %d",rc);
-      goto error;
+      PD_RC_CHECK(EDB_NETWORK,PDERROR,"Failed to select fron socket, rc = %d",rc);
     }
 
     //判断是否是_fd准备好了(fds里面也就_fd)
@@ -411,9 +407,7 @@ int ossSocket::recvNF(char *pMsg,int len,int timeout)
   //0表示peer shutdown了(end-of-file)
   else if (rc == 0)
   {
-    printf("Peer unexpected shuwdown");
-    rc = EDB_NETWORK_CLOSE;
-    goto error;
+    PD_RC_CHECK(EDB_NETWORK_CLOSE,PDWARNING,"Peer unexpected shuwdown");
   }
   //错误发生
   else 
@@ -422,9 +416,7 @@ int ossSocket::recvNF(char *pMsg,int len,int timeout)
     //由超时时间,并且是again/wouldblock错误应该重新来等待,但是我们这里直接返回错误了
     if((EAGAIN == rc || EWOULDBLOCK == rc) && _timeout>0)
     {
-      printf("Recv() timeout: rc = %d",rc);
-      rc = EDB_NETWORK;
-      goto error;
+      PD_RC_CHECK(EDB_NETWORK,PDERROR,"Recv() timeout: rc = %d",rc);
     }
     //发生了中断
     if ((EINTR == rc) && (retries < MAX_RECV_RETRIES))
@@ -432,9 +424,7 @@ int ossSocket::recvNF(char *pMsg,int len,int timeout)
       retries++;
     }
     //其他错误
-    printf("Recv() Failed: rc = %d",rc);
-    rc = EDB_NETWORK;
-    goto error;
+    PD_RC_CHECK(EDB_NETWORK,PDERROR,"Recv() Failed: rc = %d",rc);
   }
   rc = EDB_OK;
 done:
@@ -451,26 +441,20 @@ int ossSocket::connect()
   rc = ::connect(_fd,(struct sockaddr *)&_sockAddress,_addressLen);
   if (rc)
   {
-    printf("Failed to connect,rc = %d",SOCKET_GETLASTERROR);
-    rc = EDB_NETWORK;
-    goto error;
+    PD_RC_CHECK(EDB_NETWORK,PDERROR,"Failed to connect,rc = %d",SOCKET_GETLASTERROR);
   }
   //得到本地的地址
   rc = getsockname(_fd,(sockaddr*)&_sockAddress,&_addressLen);
   if (rc)
   {
-    printf("Failed to get local address, rc = %d",rc);
-    rc = EDB_NETWORK;
-    goto error;
+    PD_RC_CHECK(EDB_NETWORK,PDERROR,"Failed to get local address, rc = %d",rc);
   }
 
   //得到对方的地址信息
   rc = getpeername(_fd,(sockaddr *)&_peerAddress,&_peerAddressLen);
   if (rc)
   {
-    printf("Failed to get peer address, rc = %d",rc);
-    rc = EDB_NETWORK;
-    goto error;
+    PD_RC_CHECK(EDB_NETWORK,PDERROR,"Failed to get peer address, rc = %d",rc);
   }
 done:
   return rc;
@@ -523,9 +507,7 @@ int ossSocket::accept(int *sock,struct sockaddr *addr,socklen_t *addrlen,int tim
       //如果是被中断,则重新select
       if (EINTR == rc)
         continue;
-      printf("Failed to select from socket, rc = %d",SOCKET_GETLASTERROR);
-      rc = EDB_NETWORK;
-      goto error;
+      PD_RC_CHECK(EDB_NETWORK,PDERROR,"Failed to select from socket, rc = %d",SOCKET_GETLASTERROR);
     }
 
     //fd准备好了
@@ -539,9 +521,7 @@ int ossSocket::accept(int *sock,struct sockaddr *addr,socklen_t *addrlen,int tim
   *sock = ::accept(_fd,addr,addrlen);
   if (-1 == *sock)
   {
-    printf("Failed to accept socket, rc = %d",SOCKET_GETLASTERROR);
-    rc = EDB_NETWORK;
-    goto error;
+    PD_RC_CHECK(EDB_NETWORK,PDERROR,"Failed to accept socket, rc = %d",SOCKET_GETLASTERROR);
   }
 done:
   return rc;
@@ -557,13 +537,13 @@ int ossSocket::disableNagle()
   rc = setsockopt(_fd,IPPROTO_TCP,TCP_NODELAY,(char *)&temp,sizeof(int));
   if (rc)
   {
-    printf("Failed to setsockopt, rc = %d",SOCKET_GETLASTERROR);
+    PD_LOG(PDWARNING,"Failed to setsockopt, rc = %d",SOCKET_GETLASTERROR);
   }
 
   rc = setsockopt(_fd,SOL_SOCKET,SO_KEEPALIVE,(char *)&temp,sizeof(int));
   if (rc)
   {
-    printf("Failed to setsockopt, rc = %d",SOCKET_GETLASTERROR);
+    PD_LOG(PDWARNING,"Failed to setsockopt, rc = %d",SOCKET_GETLASTERROR);
   }
   return rc;
 }
@@ -580,9 +560,7 @@ int ossSocket::_getAddress(struct sockaddr_in *addr,char *pAddress,unsigned int 
   rc = getnameinfo((struct sockaddr *)addr,sizeof(sockaddr),pAddress,length,NULL,0,NI_NUMERICHOST);
   if (rc)
   {
-    printf("Failed to getnameinfo, rc = %d",SOCKET_GETLASTERROR);
-    rc = EDB_NETWORK;
-    goto error;
+    PD_RC_CHECK(EDB_NETWORK,PDERROR,"Failed to getnameinfo, rc = %d",SOCKET_GETLASTERROR);
   }
 done:
   return rc;
@@ -621,14 +599,14 @@ int ossSocket::setTimeout(int seconds)
   rc = setsockopt(_fd,SOL_SOCKET,SO_RCVTIMEO,(char *)&tv,sizeof(tv));
   if (rc)
   {
-    printf("Failed to setsockopt, rc = %d",SOCKET_GETLASTERROR);
+    PD_LOG(PDWARNING,"Failed to setsockopt, rc = %d",SOCKET_GETLASTERROR);
   }
 
   //设置发送数据的超时时间
   rc = setsockopt(_fd,SOL_SOCKET,SO_SNDTIMEO,(char *)&tv,sizeof(tv));
   if (rc)
   {
-    printf("Failed to setsockopt, rc = %d",SOCKET_GETLASTERROR);
+    PD_LOG(PDWARNING,"Failed to setsockopt, rc = %d",SOCKET_GETLASTERROR);
   }
 
   return rc;
